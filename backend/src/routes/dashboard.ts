@@ -1,87 +1,63 @@
-
 import express from 'express';
 import { prisma } from '../server';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
+import { StatusPagamento } from '@prisma/client';
 
 const router = express.Router();
 
-// Aplicar middleware de autenticação em todas as rotas
+// Auth em todas as rotas
 router.use(authenticateToken);
 
-// GET - Resumo do dashboard
+// GET /dashboard/resumo
 router.get('/resumo', async (req: AuthRequest, res) => {
   try {
+    if (!req.userId) return res.status(401).json({ error: 'Não autenticado' });
+    const usuarioId = req.userId as string;
+
     const hoje = new Date();
     const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-    const fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+    const fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0, 23, 59, 59, 999);
 
-    // Gastos do mês
-    const gastosMes = await prisma.gasto.findMany({
-      where: {
-        usuarioId: req.userId,
-        dataVencimento: {
-          gte: inicioMes,
-          lte: fimMes
-        }
-      }
-    });
+    const [gastosMes, contasFixasMes, parcelasMes] = await Promise.all([
+      prisma.gasto.findMany({
+        where: { usuarioId, dataVencimento: { gte: inicioMes, lte: fimMes } }
+      }),
+      prisma.contaFixa.findMany({
+        where: { usuarioId, dataVencimento: { gte: inicioMes, lte: fimMes } }
+      }),
+      prisma.parcela.findMany({
+        where: { gastoPrincipal: { usuarioId }, dataVencimento: { gte: inicioMes, lte: fimMes } }
+      })
+    ]);
 
-    // Contas fixas do mês
-    const contasFixasMes = await prisma.contaFixa.findMany({
-      where: {
-        usuarioId: req.userId,
-        dataVencimento: {
-          gte: inicioMes,
-          lte: fimMes
-        }
-      }
-    });
+    const soma = (a: number, b: number) => a + b;
 
-    // Parcelas do mês
-    const parcelasMes = await prisma.parcela.findMany({
-      where: {
-        gastoPrincipal: {
-          usuarioId: req.userId
-        },
-        dataVencimento: {
-          gte: inicioMes,
-          lte: fimMes
-        }
-      }
-    });
-
-    // Cálculos
-    const totalGastos = gastosMes.reduce((sum, gasto) => sum + gasto.valor, 0);
-    const totalContasFixas = contasFixasMes.reduce((sum, conta) => sum + conta.valor, 0);
-    const totalParcelas = parcelasMes.reduce((sum, parcela) => sum + parcela.valor, 0);
-
+    const totalGastos = gastosMes.map(g => g.valor).reduce(soma, 0);
+    const totalContasFixas = contasFixasMes.map(c => c.valor).reduce(soma, 0);
+    const totalParcelas = parcelasMes.map(p => p.valor).reduce(soma, 0);
     const totalMensal = totalGastos + totalContasFixas + totalParcelas;
 
-    // Itens pagos
-    const gastosPagos = gastosMes.filter(g => g.status === 'PAGO');
-    const contasFixasPagas = contasFixasMes.filter(c => c.status === 'PAGO');
-    const parcelasPagas = parcelasMes.filter(p => p.status === 'PAGO');
+    const gastosPagos = gastosMes.filter(g => g.status === StatusPagamento.PAGO);
+    const contasFixasPagas = contasFixasMes.filter(c => c.status === StatusPagamento.PAGO);
+    const parcelasPagas = parcelasMes.filter(p => p.status === StatusPagamento.PAGO);
+    const totalPago = [...gastosPagos, ...contasFixasPagas, ...parcelasPagas]
+      .map(i => i.valor).reduce(soma, 0);
 
-    const totalPago = [
-      ...gastosPagos,
-      ...contasFixasPagas,
-      ...parcelasPagas
-    ].reduce((sum, item) => sum + item.valor, 0);
+    const gastosAtrasados = gastosMes.filter(g => g.status === StatusPagamento.ATRASADO);
+    const contasFixasAtrasadas = contasFixasMes.filter(c => c.status === StatusPagamento.ATRASADO);
+    const parcelasAtrasadas = parcelasMes.filter(p => p.status === StatusPagamento.ATRASADO);
+    const totalAtrasado = [...gastosAtrasados, ...contasFixasAtrasadas, ...parcelasAtrasadas]
+      .map(i => i.valor).reduce(soma, 0);
 
-    // Itens atrasados
-    const gastosAtrasados = gastosMes.filter(g => g.status === 'ATRASADO');
-    const contasFixasAtrasadas = contasFixasMes.filter(c => c.status === 'ATRASADO');
-    const parcelasAtrasadas = parcelasMes.filter(p => p.status === 'ATRASADO');
+    const totalItensAtrasados =
+      gastosAtrasados.length + contasFixasAtrasadas.length + parcelasAtrasadas.length;
 
-    const totalAtrasado = [
-      ...gastosAtrasados,
-      ...contasFixasAtrasadas,
-      ...parcelasAtrasadas
-    ].reduce((sum, item) => sum + item.valor, 0);
+    const itensAPagar =
+      gastosMes.filter(g => g.status === StatusPagamento.A_PAGAR).length +
+      contasFixasMes.filter(c => c.status === StatusPagamento.A_PAGAR).length +
+      parcelasMes.filter(p => p.status === StatusPagamento.A_PAGAR).length;
 
-    const totalItensAtrasados = gastosAtrasados.length + contasFixasAtrasadas.length + parcelasAtrasadas.length;
-
-    res.json({
+    return res.json({
       totalMensal,
       totalPago,
       totalAtrasado,
@@ -94,112 +70,84 @@ router.get('/resumo', async (req: AuthRequest, res) => {
       itensPorStatus: {
         pagos: gastosPagos.length + contasFixasPagas.length + parcelasPagas.length,
         atrasados: totalItensAtrasados,
-        aPagar: (gastosMes.length + contasFixasMes.length + parcelasMes.length) - 
-                (gastosPagos.length + contasFixasPagas.length + parcelasPagas.length) - 
-                totalItensAtrasados
+        aPagar: itensAPagar
       }
     });
   } catch (error) {
     console.error('Erro ao buscar resumo do dashboard:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    return res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 
-// GET - Todos os itens atrasados
+// GET /dashboard/atrasados
 router.get('/atrasados', async (req: AuthRequest, res) => {
   try {
-    const gastosAtrasados = await prisma.gasto.findMany({
-      where: {
-        usuarioId: req.userId,
-        status: 'ATRASADO'
-      }
-    });
+    if (!req.userId) return res.status(401).json({ error: 'Não autenticado' });
+    const usuarioId = req.userId as string;
 
-    const contasFixasAtrasadas = await prisma.contaFixa.findMany({
-      where: {
-        usuarioId: req.userId,
-        status: 'ATRASADO'
-      }
-    });
+    const [gastos, contasFixas, parcelas] = await Promise.all([
+      prisma.gasto.findMany({
+        where: { usuarioId, status: StatusPagamento.ATRASADO }
+      }),
+      prisma.contaFixa.findMany({
+        where: { usuarioId, status: StatusPagamento.ATRASADO }
+      }),
+      prisma.parcela.findMany({
+        where: { status: StatusPagamento.ATRASADO, gastoPrincipal: { usuarioId } },
+        include: { gastoPrincipal: true }
+      })
+    ]);
 
-    const parcelasAtrasadas = await prisma.parcela.findMany({
-      where: {
-        status: 'ATRASADO',
-        gastoPrincipal: {
-          usuarioId: req.userId
-        }
-      },
-      include: {
-        gastoPrincipal: true
-      }
-    });
-
-    res.json({
-      gastos: gastosAtrasados,
-      contasFixas: contasFixasAtrasadas,
-      parcelas: parcelasAtrasadas
-    });
+    return res.json({ gastos, contasFixas, parcelas });
   } catch (error) {
     console.error('Erro ao buscar itens atrasados:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    return res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 
-// PUT - Atualizar status em lote
+// PUT /dashboard/atualizar-status-lote
 router.put('/atualizar-status-lote', async (req: AuthRequest, res) => {
   try {
-    const { tipo, ids, novoStatus } = req.body;
+    if (!req.userId) return res.status(401).json({ error: 'Não autenticado' });
 
-    if (!tipo || !ids || !Array.isArray(ids) || !novoStatus) {
+    const { tipo, ids, novoStatus } = req.body;
+    if (!tipo || !Array.isArray(ids) || ids.length === 0 || !novoStatus) {
       return res.status(400).json({ error: 'Parâmetros inválidos' });
     }
 
-    let resultado;
+    if (!Object.values(StatusPagamento).includes(novoStatus as StatusPagamento)) {
+      return res.status(400).json({ error: 'status inválido' });
+    }
+    const statusEnum = novoStatus as StatusPagamento;
+    const usuarioId = req.userId as string;
 
-    switch (tipo) {
-      case 'gastos':
-        resultado = await prisma.gasto.updateMany({
-          where: {
-            id: { in: ids },
-            usuarioId: req.userId
-          },
-          data: { status: novoStatus }
-        });
-        break;
-      
-      case 'contasFixas':
-        resultado = await prisma.contaFixa.updateMany({
-          where: {
-            id: { in: ids },
-            usuarioId: req.userId
-          },
-          data: { status: novoStatus }
-        });
-        break;
-      
-      case 'parcelas':
-        resultado = await prisma.parcela.updateMany({
-          where: {
-            id: { in: ids },
-            gastoPrincipal: {
-              usuarioId: req.userId
-            }
-          },
-          data: { status: novoStatus }
-        });
-        break;
-      
-      default:
-        return res.status(400).json({ error: 'Tipo inválido' });
+    let resultado;
+    if (tipo === 'gastos') {
+      resultado = await prisma.gasto.updateMany({
+        where: { id: { in: ids as string[] }, usuarioId },
+        data: { status: statusEnum }
+      });
+    } else if (tipo === 'contasFixas') {
+      resultado = await prisma.contaFixa.updateMany({
+        where: { id: { in: ids as string[] }, usuarioId },
+        data: { status: statusEnum }
+      });
+    } else if (tipo === 'parcelas') {
+      resultado = await prisma.parcela.updateMany({
+        where: { id: { in: ids as string[] }, gastoPrincipal: { usuarioId } },
+        data: { status: statusEnum }
+      });
+    } else {
+      return res.status(400).json({ error: 'Tipo inválido' });
     }
 
-    res.json({ 
+    return res.json({
       message: `${resultado.count} item(s) atualizado(s) com sucesso`,
       count: resultado.count
     });
   } catch (error) {
     console.error('Erro ao atualizar status em lote:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    return res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 

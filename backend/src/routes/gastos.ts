@@ -1,6 +1,6 @@
-
 import express from 'express';
 import { prisma } from '../server';
+import { StatusPagamento, TipoGasto } from '@prisma/client';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
@@ -8,36 +8,38 @@ const router = express.Router();
 // Aplicar middleware de autenticação em todas as rotas
 router.use(authenticateToken);
 
-// GET - Listar todos os gastos do usuário
+// GET /gastos - Listar todos os gastos do usuário
 router.get('/', async (req: AuthRequest, res) => {
   try {
+    if (!req.userId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
     const gastos = await prisma.gasto.findMany({
       where: { usuarioId: req.userId },
-      include: {
-        parcelasGasto: true
-      },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { dataVencimento: 'desc' }
     });
 
-    res.json(gastos);
+    return res.json(gastos);
   } catch (error) {
     console.error('Erro ao buscar gastos:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    return res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 
-// GET - Buscar gasto por ID
+// GET /gastos/:id - Buscar um gasto específico
 router.get('/:id', async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
 
+    if (!req.userId || !id) {
+      return res.status(400).json({ error: 'Dados inválidos' });
+    }
+
     const gasto = await prisma.gasto.findFirst({
-      where: { 
+      where: {
         id,
-        usuarioId: req.userId 
-      },
-      include: {
-        parcelasGasto: true
+        usuarioId: req.userId
       }
     });
 
@@ -45,64 +47,73 @@ router.get('/:id', async (req: AuthRequest, res) => {
       return res.status(404).json({ error: 'Gasto não encontrado' });
     }
 
-    res.json(gasto);
+    return res.json(gasto);
   } catch (error) {
     console.error('Erro ao buscar gasto:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    return res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 
-// POST - Criar novo gasto
+// POST /gastos - Criar um novo gasto
 router.post('/', async (req: AuthRequest, res) => {
   try {
-    const { descricao, valor, dataVencimento, tipo, parcelas = 1 } = req.body;
+    const {
+      descricao,
+      valor,
+      dataVencimento,
+      status,
+      parcelas,
+      tipo
+    } = req.body;
 
-    if (!descricao || !valor || !dataVencimento || !tipo) {
-      return res.status(400).json({ error: 'Todos os campos são obrigatórios' });
+
+    // Validação básica
+    if (!descricao || !valor || !dataVencimento || !req.userId || !tipo) {
+      return res.status(400).json({ error: 'Dados obrigatórios não fornecidos' });
     }
 
-    // Determinar status baseado na data de vencimento
-    const hoje = new Date();
-    const vencimento = new Date(dataVencimento);
-    let status = 'A_PAGAR';
-    
-    if (vencimento < hoje) {
-      status = 'ATRASADO';
-    }
+    const statusEnum = Object.values(StatusPagamento).includes(status as StatusPagamento)
+      ? (status as StatusPagamento)
+      : StatusPagamento.A_PAGAR;
 
+    if (!Object.values(TipoGasto).includes(tipo as TipoGasto)) {
+      return res.status(400).json({ error: 'tipo inválido (CARTAO_CREDITO, DEBITO, PIX, BOLETO)' });
+    }
+    const tipoEnum = tipo as TipoGasto;
+
+
+    // Criar o gasto principal
     const gasto = await prisma.gasto.create({
       data: {
         descricao,
-        valor: parseFloat(valor),
+        valor: Number(valor),
         dataVencimento: new Date(dataVencimento),
-        tipo,
-        parcelas: parseInt(parcelas),
-        status,
-        usuarioId: req.userId!
+        status: statusEnum,
+        tipo: tipoEnum,
+        usuarioId: req.userId
       }
     });
 
-    // Se for parcelado, criar as parcelas
-    if (parcelas > 1) {
+
+    // Se tem parcelas, criar parcelas relacionadas
+    if (parcelas && parseInt(parcelas) > 1) {
+      const numParcelas = Number(parcelas || 1);
+      const valorParcela = parseFloat(valor) / numParcelas;
+      const dataBase = new Date(dataVencimento);
+
       const parcelasData = [];
-      const valorParcela = parseFloat(valor) / parseInt(parcelas);
-      
-      for (let i = 1; i <= parseInt(parcelas); i++) {
-        const dataVencimentoParcela = new Date(dataVencimento);
-        dataVencimentoParcela.setMonth(dataVencimentoParcela.getMonth() + (i - 1));
-        
-        let statusParcela = 'A_PAGAR';
-        if (dataVencimentoParcela < hoje) {
-          statusParcela = 'ATRASADO';
-        }
+
+      for (let i = 1; i <= numParcelas; i++) {
+        const dataParcelada = new Date(dataBase);
+        dataParcelada.setMonth(dataParcelada.getMonth() + (i - 1));
 
         parcelasData.push({
-          descricao: `${descricao} - Parcela ${i}`,
+          descricao: `${descricao} - Parcela ${i}/${numParcelas}`,
           valor: valorParcela,
-          dataVencimento: dataVencimentoParcela,
+          dataVencimento: dataParcelada,
           numeroParcela: i,
-          totalParcelas: parseInt(parcelas),
-          status: statusParcela,
+          totalParcelas: numParcelas,
+          status: statusEnum,
           idGastoPrincipal: gasto.id
         });
       }
@@ -112,30 +123,27 @@ router.post('/', async (req: AuthRequest, res) => {
       });
     }
 
-    const gastoCompleto = await prisma.gasto.findUnique({
-      where: { id: gasto.id },
-      include: {
-        parcelasGasto: true
-      }
-    });
-
-    res.status(201).json(gastoCompleto);
+    return res.status(201).json(gasto);
   } catch (error) {
     console.error('Erro ao criar gasto:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    return res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 
-// PUT - Atualizar gasto
+// PUT /gastos/:id - Atualizar um gasto
 router.put('/:id', async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
-    const { descricao, valor, dataVencimento, tipo, status } = req.body;
 
+    if (!req.userId || !id) {
+      return res.status(400).json({ error: 'Dados inválidos' });
+    }
+
+    // Verificar se o gasto existe e pertence ao usuário
     const gastoExistente = await prisma.gasto.findFirst({
-      where: { 
+      where: {
         id,
-        usuarioId: req.userId 
+        usuarioId: req.userId
       }
     });
 
@@ -143,36 +151,53 @@ router.put('/:id', async (req: AuthRequest, res) => {
       return res.status(404).json({ error: 'Gasto não encontrado' });
     }
 
-    const gasto = await prisma.gasto.update({
-      where: { id },
-      data: {
-        ...(descricao && { descricao }),
-        ...(valor && { valor: parseFloat(valor) }),
-        ...(dataVencimento && { dataVencimento: new Date(dataVencimento) }),
-        ...(tipo && { tipo }),
-        ...(status && { status })
-      },
-      include: {
-        parcelasGasto: true
+    const { descricao, valor, dataVencimento, tipo, status, parcelas } = req.body;
+
+    const dataUpdate: any = {};
+    if (descricao) dataUpdate.descricao = descricao;
+    if (valor !== undefined) dataUpdate.valor = Number(valor);
+    if (dataVencimento) dataUpdate.dataVencimento = new Date(dataVencimento);
+    if (parcelas !== undefined) dataUpdate.parcelas = Number(parcelas);
+    if (tipo) {
+      if (!Object.values(TipoGasto).includes(tipo as TipoGasto)) {
+        return res.status(400).json({ error: 'tipo inválido' });
       }
+      dataUpdate.tipo = tipo as TipoGasto;
+    }
+    if (status) {
+      if (!Object.values(StatusPagamento).includes(status as StatusPagamento)) {
+        return res.status(400).json({ error: 'status inválido' });
+      }
+      dataUpdate.status = status as StatusPagamento;
+    }
+
+    const gastoAtualizado = await prisma.gasto.update({
+      where: { id },
+      data: dataUpdate
     });
 
-    res.json(gasto);
+
+    return res.json(gastoAtualizado);
   } catch (error) {
     console.error('Erro ao atualizar gasto:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    return res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 
-// DELETE - Deletar gasto
+// DELETE /gastos/:id - Deletar um gasto
 router.delete('/:id', async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
 
+    if (!req.userId || !id) {
+      return res.status(400).json({ error: 'Dados inválidos' });
+    }
+
+    // Verificar se o gasto existe e pertence ao usuário
     const gastoExistente = await prisma.gasto.findFirst({
-      where: { 
+      where: {
         id,
-        usuarioId: req.userId 
+        usuarioId: req.userId
       }
     });
 
@@ -184,10 +209,10 @@ router.delete('/:id', async (req: AuthRequest, res) => {
       where: { id }
     });
 
-    res.json({ message: 'Gasto deletado com sucesso' });
+    return res.json({ message: 'Gasto deletado com sucesso' });
   } catch (error) {
     console.error('Erro ao deletar gasto:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    return res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 

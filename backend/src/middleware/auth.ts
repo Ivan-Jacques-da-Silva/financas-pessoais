@@ -16,8 +16,9 @@ export const authenticateToken = async (req: AuthRequest, res: Response, next: N
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as { userId: string };
-    
+    const decoded = jwt.verify(token, process.env['JWT_SECRET'] || 'fallback-secret') as { userId: string };
+
+
     // Verificar se o usuário ainda existe
     const user = await prisma.usuario.findUnique({
       where: { id: decoded.userId }
@@ -28,7 +29,8 @@ export const authenticateToken = async (req: AuthRequest, res: Response, next: N
     }
 
     req.userId = decoded.userId;
-    next();
+    return next();
+
   } catch (error) {
     return res.status(403).json({ error: 'Token inválido' });
   }
