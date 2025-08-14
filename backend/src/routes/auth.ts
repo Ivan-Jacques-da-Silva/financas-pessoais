@@ -1,4 +1,3 @@
-
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -9,50 +8,54 @@ const router = express.Router();
 // Registrar usuário
 router.post('/register', async (req, res) => {
   try {
-    const { email, senha } = req.body;
+    const { nome, email, senha } = req.body;
 
-    if (!email || !senha) {
-      return res.status(400).json({ error: 'Email e senha são obrigatórios' });
-    }
+    if (!nome || !email || !senha) {
+      return res.status(400).json({ error: 'Todos os campos são obrigatórios' });
 
-    if (senha.length < 4) {
-      return res.status(400).json({ error: 'Senha deve ter pelo menos 4 caracteres' });
     }
 
     // Verificar se usuário já existe
-    const existingUser = await prisma.usuario.findUnique({
+    const usuarioExistente = await prisma.usuario.findUnique({
       where: { email }
     });
 
-    if (existingUser) {
-      return res.status(400).json({ error: 'Usuário já existe' });
+    if (usuarioExistente) {
+      return res.status(400).json({ error: 'Email já cadastrado' });
     }
 
     // Hash da senha
-    const hashedPassword = await bcrypt.hash(senha, 10);
+    const senhaHash = await bcrypt.hash(senha, 10);
 
     // Criar usuário
-    const user = await prisma.usuario.create({
+    const usuario = await prisma.usuario.create({
       data: {
+        nome,
         email,
-        senha: hashedPassword
+        senha: senhaHash
       }
     });
 
-    // Gerar token
+    // Gerar token JWT
     const token = jwt.sign(
-      { userId: user.id },
-      process.env.JWT_SECRET || 'fallback-secret',
+      {
+        userId: usuario.id,
+        email: usuario.email
+      },
+      process.env['JWT_SECRET'] || 'fallback-secret',
       { expiresIn: '7d' }
     );
 
     res.status(201).json({
-      token,
+      message: 'Usuário criado com sucesso',
       user: {
-        id: user.id,
-        email: user.email
-      }
+        id: usuario.id,
+        nome: usuario.nome,
+        email: usuario.email
+      },
+      token
     });
+
   } catch (error) {
     console.error('Erro ao registrar usuário:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -69,35 +72,41 @@ router.post('/login', async (req, res) => {
     }
 
     // Buscar usuário
-    const user = await prisma.usuario.findUnique({
+    const usuario = await prisma.usuario.findUnique({
       where: { email }
     });
 
-    if (!user) {
-      return res.status(400).json({ error: 'Credenciais inválidas' });
+    if (!usuario) {
+      return res.status(401).json({ error: 'Credenciais inválidas' });
     }
 
     // Verificar senha
-    const isValidPassword = await bcrypt.compare(senha, user.senha);
+    const senhaValida = await bcrypt.compare(senha, usuario.senha);
 
-    if (!isValidPassword) {
-      return res.status(400).json({ error: 'Credenciais inválidas' });
+    if (!senhaValida) {
+      return res.status(401).json({ error: 'Credenciais inválidas' });
     }
 
-    // Gerar token
+    // Gerar token JWT
     const token = jwt.sign(
-      { userId: user.id },
-      process.env.JWT_SECRET || 'fallback-secret',
+      {
+        userId: usuario.id,
+        email: usuario.email
+      },
+      process.env['JWT_SECRET'] || 'fallback-secret',
       { expiresIn: '7d' }
     );
 
     res.json({
-      token,
+      message: 'Login realizado com sucesso',
       user: {
-        id: user.id,
-        email: user.email
-      }
+        id: usuario.id,
+        nome: usuario.nome,
+        email: usuario.email
+      },
+      token
     });
+
   } catch (error) {
     console.error('Erro ao fazer login:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });

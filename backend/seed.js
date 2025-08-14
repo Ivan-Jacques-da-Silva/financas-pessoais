@@ -8,35 +8,51 @@ async function main() {
   console.log('🌱 Iniciando seed do banco de dados...');
 
   try {
+    // Verificar conexão
+    await prisma.$connect();
+    console.log('✅ Conectado ao banco de dados');
+
     // Criar usuário admin
     const adminEmail = 'admin@financeiro.com';
     const adminPassword = 'admin123';
 
-    // Verificar se admin já existe
-    const existingAdmin = await prisma.usuario.findUnique({
-      where: { email: adminEmail }
-    });
-
-    if (existingAdmin) {
-      console.log('⚠️ Usuário admin já existe!');
-      return;
-    }
-
     // Hash da senha
     const hashedPassword = await bcrypt.hash(adminPassword, 12);
 
-    // Criar admin
-    const admin = await prisma.usuario.create({
-      data: {
-        email: adminEmail,
-        senha: hashedPassword
-      }
+    // Verificar se admin já existe
+    let admin = await prisma.usuario.findUnique({
+      where: { email: adminEmail }
     });
 
-    console.log('✅ Usuário admin criado:');
+    if (admin) {
+      console.log('⚠️ Usuário admin já existe! Atualizando senha...');
+      admin = await prisma.usuario.update({
+        where: { email: adminEmail },
+        data: { senha: hashedPassword }
+      });
+    } else {
+      // Criar admin
+      admin = await prisma.usuario.create({
+        data: {
+          email: adminEmail,
+          senha: hashedPassword
+        }
+      });
+    }
+
+    console.log('✅ Usuário admin configurado:');
     console.log(`   Email: ${adminEmail}`);
     console.log(`   Senha: ${adminPassword}`);
     console.log(`   ID: ${admin.id}`);
+
+    // Limpar dados existentes do usuário
+    await prisma.gasto.deleteMany({
+      where: { usuarioId: admin.id }
+    });
+    await prisma.contaFixa.deleteMany({
+      where: { usuarioId: admin.id }
+    });
+    console.log('🧹 Dados antigos removidos');
 
     // Criar dados de exemplo
     const now = new Date();
