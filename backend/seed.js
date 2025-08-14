@@ -34,8 +34,9 @@ async function main() {
       // Criar admin
       admin = await prisma.usuario.create({
         data: {
-          email: adminEmail,
-          senha: hashedPassword
+          nome: "Administrador",
+          email: "admin@financeiro.com",
+          senha: "$2a$12$/QjDgm0fcMSlQ6Lh84XcCex8DruDt0/YZicJA51G3W7aQHLfHvsv2"
         }
       });
     }
@@ -111,7 +112,7 @@ async function main() {
     });
 
     console.log('✅ Dados de exemplo criados!');
-    
+
   } catch (error) {
     console.error('❌ Erro durante seed:', error);
     throw error;

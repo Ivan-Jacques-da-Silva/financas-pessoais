@@ -2,11 +2,13 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../server';
+import type { Request, Response } from 'express';
+
 
 const router = express.Router();
 
 // Registrar usuário
-router.post('/register', async (req, res) => {
+router.post('/register', async (req: Request, res: Response) => {
   try {
     const { nome, email, senha } = req.body;
 
@@ -46,7 +48,7 @@ router.post('/register', async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    res.status(201).json({
+    return res.status(201).json({
       message: 'Usuário criado com sucesso',
       user: {
         id: usuario.id,
@@ -58,12 +60,12 @@ router.post('/register', async (req, res) => {
 
   } catch (error) {
     console.error('Erro ao registrar usuário:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    return res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 
 // Login
-router.post('/login', async (req, res) => {
+router.post('/login', async (req: Request, res: Response) => {
   try {
     const { email, senha } = req.body;
 
@@ -97,7 +99,7 @@ router.post('/login', async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    res.json({
+    return res.json({
       message: 'Login realizado com sucesso',
       user: {
         id: usuario.id,
@@ -109,8 +111,9 @@ router.post('/login', async (req, res) => {
 
   } catch (error) {
     console.error('Erro ao fazer login:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    return res.status(500).json({ error: 'Erro interno do servidor' });
   }
+
 });
 
 export default router;
