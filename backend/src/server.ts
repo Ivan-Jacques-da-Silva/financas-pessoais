@@ -1,4 +1,3 @@
-
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -8,6 +7,7 @@ import { PrismaClient } from '@prisma/client';
 
 // Routes
 import authRoutes from './routes/auth';
+import meRoutes from './routes/me'; // Import the new meRoutes
 import gastosRoutes from './routes/gastos';
 import contasFixasRoutes from './routes/contasFixas';
 import parcelasRoutes from './routes/parcelas';
@@ -33,6 +33,7 @@ app.use('/api', limiter);
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/me', meRoutes); // Register the new /me route
 app.use('/api/gastos', gastosRoutes);
 app.use('/api/contas-fixas', contasFixasRoutes);
 app.use('/api/parcelas', parcelasRoutes);
