@@ -68,7 +68,38 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// PUT - Atualizar parcela (principalmente status)
+// PATCH - Atualizar status da parcela
+router.patch('/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.userId) return res.status(401).json({ error: 'Usuário não autenticado' });
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    if (!id) return res.status(400).json({ error: 'ID é obrigatório' });
+
+    const existe = await prisma.parcela.findFirst({
+      where: { id, gastoPrincipal: { usuarioId: req.userId as string } }
+    });
+    if (!existe) return res.status(404).json({ error: 'Parcela não encontrada' });
+
+    if (!Object.values(StatusPagamento).includes(status as StatusPagamento)) {
+      return res.status(400).json({ error: 'status inválido' });
+    }
+
+    const parcela = await prisma.parcela.update({
+      where: { id },
+      data: { status: status as StatusPagamento },
+      include: { gastoPrincipal: true }
+    });
+
+    return res.json(parcela);
+  } catch (error) {
+    console.error('Erro ao atualizar status da parcela:', error);
+    return res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// PUT - Atualizar parcela completa
 router.put('/:id', async (req: AuthRequest, res: Response) => {
   try {
     if (!req.userId) return res.status(401).json({ error: 'Usuário não autenticado' });

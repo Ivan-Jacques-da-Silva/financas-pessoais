@@ -308,7 +308,7 @@ export default function Home() {
     }
   }
 
-  const atualizarStatusGasto = async (id: string, status: any) => {
+  const atualizarStatusGasto = async (id: string, status: StatusPagamento) => {
     try {
       const response = await fetch(`${API_URL}/gastos/${id}`, {
         method: 'PATCH',
@@ -326,7 +326,7 @@ export default function Home() {
     }
   }
 
-  const atualizarStatusContaFixa = async (id: string, status: any) => {
+  const atualizarStatusContaFixa = async (id: string, status: StatusPagamento) => {
     try {
       const response = await fetch(`${API_URL}/contas-fixas/${id}`, {
         method: 'PATCH',
@@ -341,6 +341,24 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Erro ao atualizar status da conta fixa:', error)
+    }
+  }
+
+  const atualizarStatusParcela = async (id: string, status: StatusPagamento) => {
+    try {
+      const response = await fetch(`${API_URL}/parcelas/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ status })
+      })
+      if (response.ok) {
+        await carregarParcelas()
+      }
+    } catch (error) {
+      console.error('Erro ao atualizar status da parcela:', error)
     }
   }
 

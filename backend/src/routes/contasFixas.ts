@@ -86,7 +86,37 @@ router.post('/', async (req: AuthRequest, res) => {
   }
 });
 
-// PUT - Atualizar conta fixa
+// PATCH - Atualizar status da conta fixa
+router.patch('/:id', async (req: AuthRequest, res) => {
+  try {
+    if (!req.userId) return res.status(401).json({ error: 'Usuário não autenticado' });
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    if (!id) return res.status(400).json({ error: 'ID é obrigatório' });
+
+    const existe = await prisma.contaFixa.findFirst({
+      where: { id, usuarioId: req.userId as string }
+    });
+    if (!existe) return res.status(404).json({ error: 'Conta fixa não encontrada' });
+
+    if (!Object.values(StatusPagamento).includes(status as StatusPagamento)) {
+      return res.status(400).json({ error: 'status inválido' });
+    }
+
+    const contaFixa = await prisma.contaFixa.update({
+      where: { id },
+      data: { status: status as StatusPagamento }
+    });
+
+    return res.json(contaFixa);
+  } catch (error) {
+    console.error('Erro ao atualizar status da conta fixa:', error);
+    return res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// PUT - Atualizar conta fixa completa
 router.put('/:id', async (req: AuthRequest, res) => {
   try {
     if (!req.userId) return res.status(401).json({ error: 'Usuário não autenticado' });

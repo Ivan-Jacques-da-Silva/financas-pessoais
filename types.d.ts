@@ -38,9 +38,11 @@ export interface Parcela {
 
 export enum StatusPagamento {
   A_PAGAR = 'A_PAGAR',
-  PAGO = 'PAGO',
+  PAGO = 'PAGO', 
   ATRASADO = 'ATRASADO'
 }
+
+export type StatusPagamento = 'A_PAGAR' | 'PAGO' | 'ATRASADO';
 
 export enum TipoGasto {
   CARTAO_CREDITO = 'CARTAO_CREDITO',

@@ -130,7 +130,41 @@ router.post('/', async (req: AuthRequest, res) => {
   }
 });
 
-// PUT /gastos/:id - Atualizar um gasto
+// PATCH /gastos/:id - Atualizar status do gasto
+router.patch('/:id', async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!req.userId || !id) {
+      return res.status(400).json({ error: 'Dados inválidos' });
+    }
+
+    const gastoExistente = await prisma.gasto.findFirst({
+      where: { id, usuarioId: req.userId }
+    });
+
+    if (!gastoExistente) {
+      return res.status(404).json({ error: 'Gasto não encontrado' });
+    }
+
+    if (!Object.values(StatusPagamento).includes(status as StatusPagamento)) {
+      return res.status(400).json({ error: 'status inválido' });
+    }
+
+    const gastoAtualizado = await prisma.gasto.update({
+      where: { id },
+      data: { status: status as StatusPagamento }
+    });
+
+    return res.json(gastoAtualizado);
+  } catch (error) {
+    console.error('Erro ao atualizar status do gasto:', error);
+    return res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// PUT /gastos/:id - Atualizar um gasto completo
 router.put('/:id', async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
