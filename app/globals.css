@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Esconder indicadores de desenvolvimento do Next.js */
+.__next-build-watcher,
+#__next-build-watcher,
+[data-nextjs-toast],
+.__next-dev-overlay,
+#__next-dev-overlay {
+  display: none !important;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;

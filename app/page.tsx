@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Eye, EyeOff, LogOut } from "lucide-react"
+import { Eye, EyeOff, LogOut, AlertTriangle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import ModalSenha from "@/components/modal-senha"
 import FormularioAdicionarGasto from "@/components/formulario-adicionar-gasto"
@@ -14,11 +14,9 @@ import ListaGastos from "@/components/lista-gastos"
 import FormularioAdicionarContaFixa from "@/components/formulario-adicionar-conta-fixa"
 import ListaContasFixas from "@/components/lista-contas-fixas"
 import SumarioDashboard from "@/components/sumario-dashboard"
-import GraficosGastos from "@/components/graficos-gastos"
-import ListaAtrasados from "@/components/lista-atrasados"
 import type { Usuario, Gasto, ContaFixa, StatusPagamento } from "../tipos"
 
-const API_URL = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:5000/api'
+const API_URL = process.env.NODE_ENV === 'production' ? 'https://sua-api.com' : 'http://localhost:5000/api';
 
 export default function Home() {
   // Estados de autenticação
@@ -40,6 +38,7 @@ export default function Home() {
   // Estados dos dados
   const [gastos, setGastos] = useState<Gasto[]>([])
   const [contasFixas, setContasFixas] = useState<ContaFixa[]>([])
+  const [dadosDashboard, setDadosDashboard] = useState<any>(null)
 
   // Verificar se usuário está logado ao carregar
   useEffect(() => {
@@ -51,6 +50,7 @@ export default function Home() {
     if (usuario) {
       carregarConfiguracaoSenha()
       carregarDados()
+      carregarDadosDashboard()
     }
   }, [usuario])
 
@@ -208,6 +208,22 @@ export default function Home() {
     await Promise.all([carregarGastos(), carregarContasFixas()])
   }
 
+  const carregarDadosDashboard = async () => {
+    try {
+      const response = await fetch(`${API_URL}/dashboard/resumo`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setDadosDashboard(data)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dados do dashboard:', error)
+    }
+  }
+
   const carregarGastos = async () => {
     try {
       const response = await fetch(`${API_URL}/gastos`, {
@@ -237,6 +253,23 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Erro ao carregar contas fixas:', error)
+    }
+  }
+
+  const carregarParcelas = async () => {
+    try {
+      const response = await fetch(`${API_URL}/parcelas`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        // Se você quiser usar as parcelas, adicione um estado para elas
+        console.log('Parcelas carregadas:', data)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar parcelas:', error)
     }
   }
 
@@ -491,7 +524,28 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Sumário */}
+        {/* Alertas de itens atrasados */}
+        {(() => {
+          const gastosAtrasados = gastos.filter(g => g.status === "Atrasado")
+          const contasAtrasadas = contasFixas.filter(c => c.status === "Atrasado")
+          const totalAtrasados = gastosAtrasados.length + contasAtrasadas.length
+          
+          if (totalAtrasados > 0) {
+            return (
+              <Alert variant="destructive" className="mb-6">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Atenção!</strong> Você tem {totalAtrasados} item(s) atrasado(s):
+                  {gastosAtrasados.map(g => ` ${g.descricao}`).join(',')}
+                  {contasAtrasadas.map(c => ` ${c.nome}`).join(',')}
+                </AlertDescription>
+              </Alert>
+            )
+          }
+          return null
+        })()}
+
+        {/* Sumário Principal */}
         <SumarioDashboard 
           gastos={gastos} 
           contasFixas={contasFixas} 
@@ -499,22 +553,11 @@ export default function Home() {
         />
 
         {/* Tabs principais */}
-        <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+        <Tabs defaultValue="gastos" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="gastos">Gastos</TabsTrigger>
             <TabsTrigger value="contas-fixas">Contas Fixas</TabsTrigger>
-            <TabsTrigger value="graficos">Gráficos</TabsTrigger>
-            <TabsTrigger value="atrasados">Atrasados</TabsTrigger>
           </TabsList>
-
-          <TabsContent value="dashboard">
-            <SumarioDashboard 
-              gastos={gastos} 
-              contasFixas={contasFixas} 
-              ocultarValores={ocultarValores} 
-            />
-          </TabsContent>
 
           <TabsContent value="gastos">
             <div className="grid gap-6 md:grid-cols-2">
@@ -556,19 +599,7 @@ export default function Home() {
             </div>
           </TabsContent>
 
-          <TabsContent value="graficos">
-            <GraficosGastos gastos={gastos} ocultarValores={ocultarValores} />
-          </TabsContent>
-
-          <TabsContent value="atrasados">
-            <ListaAtrasados 
-              gastos={gastos} 
-              contasFixas={contasFixas} 
-              ocultarValores={ocultarValores}
-              aoAtualizarStatusGasto={atualizarStatusGasto}
-              aoAtualizarStatusContaFixa={atualizarStatusContaFixa}
-            />
-          </TabsContent>
+          
         </Tabs>
       </div>
 
