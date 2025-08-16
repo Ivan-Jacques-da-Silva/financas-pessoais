@@ -1,36 +1,21 @@
-
 import express from 'express';
-import jwt from 'jsonwebtoken';
 import { prisma } from '../server';
-import type { Request, Response } from 'express';
+import { authenticateToken, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
 
-// Middleware para verificar token
-const verificarToken = (req: Request, res: Response, next: any) => {
-  const authHeader = req.headers.authorization;
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ error: 'Token não fornecido' });
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env['JWT_SECRET'] || 'fallback-secret') as any;
-    (req as any).userId = decoded.userId;
-    next();
-  } catch (error) {
-    return res.status(401).json({ error: 'Token inválido' });
-  }
-};
+// Usar o middleware padrão que já existe
+router.use(authenticateToken);
 
 // Rota para obter dados do usuário atual
-router.get('/', verificarToken, async (req: Request, res: Response) => {
+router.get('/', async (req: AuthRequest, res) => {
   try {
-    const userId = (req as any).userId;
-    
+    if (!req.userId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
     const usuario = await prisma.usuario.findUnique({
-      where: { id: userId },
+      where: { id: req.userId },
       select: { id: true, nome: true, email: true }
     });
 

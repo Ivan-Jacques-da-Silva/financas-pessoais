@@ -1,5 +1,4 @@
-
-"use client"
+'use client'
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -17,7 +16,9 @@ import ListaContasFixas from "@/components/lista-contas-fixas"
 import SumarioDashboard from "@/components/sumario-dashboard"
 import GraficosGastos from "@/components/graficos-gastos"
 import ListaAtrasados from "@/components/lista-atrasados"
-import type { Gasto, ContaFixa, Usuario } from "../tipos"
+import type { Usuario, Gasto, ContaFixa, StatusPagamento } from "../tipos"
+
+const API_URL = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:5000/api'
 
 export default function Home() {
   // Estados de autenticação
@@ -55,12 +56,12 @@ export default function Home() {
 
   const verificarUsuarioLogado = async () => {
     try {
-      const response = await fetch('/api/me', {
+      const response = await fetch(`${API_URL}/me`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       })
-      
+
       if (response.ok) {
         const userData = await response.json()
         setUsuario(userData)
@@ -80,7 +81,7 @@ export default function Home() {
     setErroAuth("")
 
     try {
-      const response = await fetch('http://localhost:3001/api/auth/login', {
+      const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -115,7 +116,7 @@ export default function Home() {
     setErroAuth("")
 
     try {
-      const response = await fetch('http://localhost:3001/api/auth/register', {
+      const response = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -209,7 +210,7 @@ export default function Home() {
 
   const carregarGastos = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/gastos', {
+      const response = await fetch(`${API_URL}/gastos`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -225,7 +226,7 @@ export default function Home() {
 
   const carregarContasFixas = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/contas-fixas', {
+      const response = await fetch(`${API_URL}/contas-fixas`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -241,7 +242,7 @@ export default function Home() {
 
   const adicionarGasto = async (novoGasto: Omit<Gasto, "id">) => {
     try {
-      const response = await fetch('http://localhost:3001/api/gastos', {
+      const response = await fetch(`${API_URL}/gastos`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -259,7 +260,7 @@ export default function Home() {
 
   const adicionarContaFixa = async (novaContaFixa: Omit<ContaFixa, "id">) => {
     try {
-      const response = await fetch('http://localhost:3001/api/contas-fixas', {
+      const response = await fetch(`${API_URL}/contas-fixas`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -277,7 +278,7 @@ export default function Home() {
 
   const removerGasto = async (id: string) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/gastos/${id}`, {
+      const response = await fetch(`${API_URL}/gastos/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -293,7 +294,7 @@ export default function Home() {
 
   const removerContaFixa = async (id: string) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/contas-fixas/${id}`, {
+      const response = await fetch(`${API_URL}/contas-fixas/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -309,7 +310,7 @@ export default function Home() {
 
   const atualizarStatusGasto = async (id: string, status: any) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/gastos/${id}`, {
+      const response = await fetch(`${API_URL}/gastos/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -327,7 +328,7 @@ export default function Home() {
 
   const atualizarStatusContaFixa = async (id: string, status: any) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/contas-fixas/${id}`, {
+      const response = await fetch(`${API_URL}/contas-fixas/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
