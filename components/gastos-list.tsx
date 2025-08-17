@@ -4,6 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button"
 import { Trash2, Check } from "lucide-react"
 import { formatCurrency, getStatusColor } from "@/lib/utils"
+import { formatarMoeda } from "@/lib/utilidades"
 import { Badge } from "@/components/ui/badge"
 import type { Gasto, TipoGasto, StatusPagamento } from "@/types"
 
@@ -15,18 +16,34 @@ interface GastosListProps {
 }
 
 export default function GastosList({ gastos, hideValues, onRemoveGasto, onUpdateStatus }: GastosListProps) {
-  const getBadgeVariant = (tipo: TipoGasto) => {
+  const getBadgeStyle = (tipo: TipoGasto) => {
+    // Usar as mesmas cores do gráfico pizza no dashboard
     switch (tipo) {
       case "Cartão de Crédito":
-        return "destructive"
+        return "text-white hover:opacity-90" // Verde #10b981
       case "Débito":
-        return "default"
+        return "text-white hover:opacity-90" // Azul #3b82f6  
       case "Pix":
-        return "secondary"
+        return "text-white hover:opacity-90" // Amarelo #f59e0b
       case "Boleto":
-        return "outline"
+        return "text-white hover:opacity-90" // Vermelho #ef4444
       default:
-        return "default"
+        return "bg-gray-500 text-white hover:bg-gray-600"
+    }
+  }
+
+  const getBadgeColor = (tipo: TipoGasto) => {
+    switch (tipo) {
+      case "Cartão de Crédito":
+        return { backgroundColor: "#10b981" } // Verde (emerald-500)
+      case "Débito":
+        return { backgroundColor: "#3b82f6" } // Azul (blue-500)
+      case "Pix":
+        return { backgroundColor: "#f59e0b" } // Amarelo (amber-500)
+      case "Boleto":
+        return { backgroundColor: "#ef4444" } // Vermelho (red-500)
+      default:
+        return { backgroundColor: "#6b7280" } // Cinza (gray-500)
     }
   }
 
@@ -66,10 +83,13 @@ export default function GastosList({ gastos, hideValues, onRemoveGasto, onUpdate
                   }`}
                 >
                   <TableCell className="font-medium">{gasto.descricao}</TableCell>
-                  <TableCell>{hideValues ? "••••••" : formatCurrency(gasto.valor)}</TableCell>
+                  <TableCell>{hideValues ? "••••••" : formatarMoeda(gasto.valor)}</TableCell>
                   <TableCell>{new Date(gasto.dataVencimento).toLocaleDateString("pt-BR")}</TableCell>
                   <TableCell>
-                    <Badge variant={getBadgeVariant(gasto.tipo)} className="font-normal">
+                    <Badge 
+                      className={`font-normal ${getBadgeStyle(gasto.tipo)}`}
+                      style={getBadgeColor(gasto.tipo)}
+                    >
                       {gasto.tipo}
                     </Badge>
                   </TableCell>

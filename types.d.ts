@@ -1,4 +1,3 @@
-
 export interface Usuario {
   id: string;
   nome: string;
@@ -6,23 +5,29 @@ export interface Usuario {
 }
 
 export interface Gasto {
-  id: string;
-  descricao: string;
-  valor: number;
-  dataVencimento: Date | string;
-  status: StatusPagamento;
-  tipo: TipoGasto;
-  usuarioId: string;
-  parcelas?: number;
+  id: string
+  descricao: string
+  valor: number
+  dataVencimento: string
+  tipo: TipoGasto
+  parcelas: number
+  parcelaAtual?: number
+  data: string
+  status: StatusPagamento
+  usuarioId: string
+  createdAt: string
+  updatedAt: string
 }
 
 export interface ContaFixa {
-  id: string;
-  nome: string;
-  valor: number;
-  dataVencimento: Date | string;
-  status: StatusPagamento;
-  usuarioId: string;
+  id: string
+  nome: string
+  valor: number
+  status: StatusPagamento
+  dataVencimento: string
+  usuarioId: string
+  createdAt: string
+  updatedAt: string
 }
 
 export interface Parcela {
@@ -38,7 +43,7 @@ export interface Parcela {
 
 export enum StatusPagamento {
   A_PAGAR = 'A_PAGAR',
-  PAGO = 'PAGO', 
+  PAGO = 'PAGO',
   ATRASADO = 'ATRASADO'
 }
 

@@ -1,4 +1,3 @@
-
 'use client'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -48,7 +47,7 @@ export default function SumarioDashboard({ gastos, contasFixas, ocultarValores }
         return dataGasto.getMonth() === mes.getMonth() && dataGasto.getFullYear() === mes.getFullYear()
       })
       .reduce((acc, gasto) => acc + gasto.valor, 0)
-    
+
     return total + gastosDoMesCalculo
   }, 0)
 
@@ -120,8 +119,8 @@ export default function SumarioDashboard({ gastos, contasFixas, ocultarValores }
           <AlertTriangle className={`h-4 w-4 ${totalItensAtrasados > 0 ? "text-red-500" : "text-emerald-500"}`} />
         </CardHeader>
         <CardContent>
-          <div className={`text-2xl font-bold ${totalItensAtrasados > 0 ? "text-red-700 dark:text-red-400" : ""}`}>
-            {totalItensAtrasados > 0 ? (ocultarValores ? "••••••" : formatarMoeda(totalAtrasados)) : "R$ 0,00"}
+          <div className={`text-2xl font-bold ${totalAtrasados > 0 ? "text-red-700 dark:text-red-400" : ""}`}>
+            {ocultarValores ? "••••••" : (totalAtrasados > 0 ? formatarMoeda(totalAtrasados) : "R$ 0,00")}
           </div>
           <CardDescription className={totalItensAtrasados > 0 ? "text-red-600 dark:text-red-400" : ""}>
             {totalItensAtrasados} item(s) atrasado(s)

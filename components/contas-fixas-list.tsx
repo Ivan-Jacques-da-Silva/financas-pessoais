@@ -4,6 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button"
 import { Trash2, Check } from "lucide-react"
 import { formatCurrency, getStatusColor } from "@/lib/utils"
+import { formatarMoeda } from "@/lib/utilidades"
 import type { ContaFixa, StatusPagamento } from "@/types"
 
 interface ContasFixasListProps {
@@ -54,11 +55,15 @@ export default function ContasFixasList({
                   }`}
                 >
                   <TableCell className="font-medium">{conta.nome}</TableCell>
-                  <TableCell>{hideValues ? "••••••" : formatCurrency(conta.valor)}</TableCell>
+                  <TableCell>{hideValues ? "••••••" : formatarMoeda(conta.valor)}</TableCell>
                   <TableCell>{new Date(conta.dataVencimento).toLocaleDateString("pt-BR")}</TableCell>
                   <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(conta.status)}`}>
-                      {conta.status}
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      conta.status === "Atrasado" 
+                        ? "bg-red-100 text-red-800 border border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800" 
+                        : getStatusColor(conta.status)
+                    }`}>
+                      {conta.status.replace("_", " ")}
                     </span>
                   </TableCell>
                   <TableCell>
@@ -93,3 +98,4 @@ export default function ContasFixasList({
     </div>
   )
 }
+g

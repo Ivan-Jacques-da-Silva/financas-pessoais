@@ -14,6 +14,7 @@ import ListaGastos from "@/components/lista-gastos"
 import FormularioAdicionarContaFixa from "@/components/formulario-adicionar-conta-fixa"
 import ListaContasFixas from "@/components/lista-contas-fixas"
 import SumarioDashboard from "@/components/sumario-dashboard"
+import DashboardCharts from "@/components/dashboard-charts"
 import type { Usuario, Gasto, ContaFixa, StatusPagamento } from "../tipos"
 
 const API_URL = process.env.NODE_ENV === 'production' ? 'https://sua-api.com' : 'http://localhost:5000/api';
@@ -38,6 +39,7 @@ export default function Home() {
   // Estados dos dados
   const [gastos, setGastos] = useState<Gasto[]>([])
   const [contasFixas, setContasFixas] = useState<ContaFixa[]>([])
+  const [parcelas, setParcelas] = useState<any[]>([])
   const [dadosDashboard, setDadosDashboard] = useState<any>(null)
 
   // Verificar se usuário está logado ao carregar
@@ -150,6 +152,7 @@ export default function Home() {
     setSenhaHash("")
     setGastos([])
     setContasFixas([])
+    setParcelas([])
   }
 
   // Funções do sistema de senha
@@ -205,7 +208,7 @@ export default function Home() {
 
   // Funções para carregar dados
   const carregarDados = async () => {
-    await Promise.all([carregarGastos(), carregarContasFixas()])
+    await Promise.all([carregarGastos(), carregarContasFixas(), carregarParcelas()])
   }
 
   const carregarDadosDashboard = async () => {
@@ -265,8 +268,7 @@ export default function Home() {
       })
       if (response.ok) {
         const data = await response.json()
-        // Se você quiser usar as parcelas, adicione um estado para elas
-        console.log('Parcelas carregadas:', data)
+        setParcelas(data)
       }
     } catch (error) {
       console.error('Erro ao carregar parcelas:', error)
@@ -285,6 +287,7 @@ export default function Home() {
       })
       if (response.ok) {
         await carregarGastos()
+        await carregarParcelas()
       }
     } catch (error) {
       console.error('Erro ao adicionar gasto:', error)
@@ -389,6 +392,7 @@ export default function Home() {
       })
       if (response.ok) {
         await carregarParcelas()
+        await carregarDadosDashboard()
       }
     } catch (error) {
       console.error('Erro ao atualizar status da parcela:', error)
@@ -553,11 +557,21 @@ export default function Home() {
         />
 
         {/* Tabs principais */}
-        <Tabs defaultValue="gastos" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
+        <Tabs defaultValue="dashboard" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
             <TabsTrigger value="gastos">Gastos</TabsTrigger>
             <TabsTrigger value="contas-fixas">Contas Fixas</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="dashboard">
+            <DashboardCharts 
+              gastos={gastos}
+              contasFixas={contasFixas}
+              parcelas={parcelas}
+              ocultarValores={ocultarValores}
+            />
+          </TabsContent>
 
           <TabsContent value="gastos">
             <div className="grid gap-6 md:grid-cols-2">
